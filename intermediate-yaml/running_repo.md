@@ -48,19 +48,45 @@ pr-workflow   ← your new feature branch (work in progress)
 
 ---
 
-### Step 2: Add Python Code to the Branch
+### Step 2: Add ML Python Code to the Branch
 
-Create a simple Python script called `hello_world.py` in your feature branch:
+Create an ML script called `train_model.py` in your feature branch. This script trains a simple classifier and prints the accuracy:
 
 ```python
-# hello_world.py
-from datetime import datetime
+# train_model.py
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-print("Hello, World!")
-print(f"Current time: {datetime.now()}")
+# Load dataset
+data = load_iris()
+X, y = data.data, data.target
+
+# Split into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Train a Random Forest model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Evaluate
+predictions = model.predict(X_test)
+accuracy = accuracy_score(y_test, predictions)
+
+print(f"✅ Model trained successfully!")
+print(f"📊 Test Accuracy: {accuracy * 100:.2f}%")
 ```
 
-Commit this file to the `pr-workflow` branch.
+Also create a `requirements.txt` file listing the needed package:
+
+```
+scikit-learn
+```
+
+Commit both files to the `pr-workflow` branch.
 
 ---
 
@@ -113,9 +139,9 @@ actions/checkout@v3
 
 ---
 
-### Step 5: Add Checkout and Python Setup Steps
+### Step 5: Add Checkout, Python Setup, and ML Steps
 
-To run your Python script, you need two setup steps first:
+To run your ML script, you need setup steps first:
 
 ```yaml
 steps:
@@ -129,9 +155,13 @@ steps:
     with:
       python-version: "3.10"       # Choose your Python version
 
-  # Step 3: Run your Python script
-  - name: Run hello world script
-    run: python hello_world.py
+  # Step 3: Install ML dependencies
+  - name: Install dependencies
+    run: pip install -r requirements.txt
+
+  # Step 4: Train the ML model and check accuracy
+  - name: Train and evaluate model
+    run: python train_model.py
 ```
 
 **Why do you need `checkout` first?**
@@ -139,12 +169,12 @@ The runner is a brand-new, empty virtual machine. It has no idea about your code
 
 ---
 
-## 🔄 The Complete PR Workflow
+## 🔄 The Complete ML PR Workflow
 
 Here's the full workflow file putting everything together:
 
 ```yaml
-name: PR Workflow                    # Workflow name
+name: ML PR Workflow                 # Workflow name
 
 on:
   pull_request:
@@ -152,7 +182,7 @@ on:
       - main                         # Triggers when PR targets main
 
 jobs:
-  build:
+  train-and-evaluate:
     runs-on: ubuntu-latest           # Run on Linux machine
 
     steps:
@@ -164,8 +194,11 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run Python script      # Step 3: Run our code
-        run: python hello_world.py
+      - name: Install dependencies   # Step 3: Install scikit-learn etc.
+        run: pip install -r requirements.txt
+
+      - name: Train and evaluate model  # Step 4: Run ML script
+        run: python train_model.py
 ```
 
 ---
@@ -181,26 +214,27 @@ jobs:
 
 ### What you see on the PR page:
 ```
-Pull Request: "Add hello world script"
+Pull Request: "Add ML training script"
 pr-workflow → main
 
 Checks:
-  ⏳ PR Workflow / build (running...)
-  ✅ PR Workflow / build (after completion)
+  ⏳ ML PR Workflow / train-and-evaluate (running...)
+  ✅ ML PR Workflow / train-and-evaluate (after completion)
 
   [Details] ← click this to see logs
 ```
 
 ### What the logs show:
 ```
-Job: build
+Job: train-and-evaluate
 │
 ├── ✅ Set up job
-├── ✅ Checkout repository          ← new step added
-├── ✅ Set up Python                ← new step added
-├── ✅ Run Python script
-│       Hello, World!
-│       Current time: 2024-03-16 10:30:45
+├── ✅ Checkout repository              ← downloads your ML code
+├── ✅ Set up Python                    ← installs Python 3.10
+├── ✅ Install dependencies             ← installs scikit-learn
+├── ✅ Train and evaluate model
+│       ✅ Model trained successfully!
+│       📊 Test Accuracy: 100.00%
 └── ✅ Complete job
 ```
 
@@ -217,17 +251,17 @@ Job: build
 
 ---
 
-## 💡 Real-World Analogy
+## 💡 Real-World ML Analogy
 
-Think of it like submitting work for review at a job:
+Think of it like a data science team reviewing a new model:
 
-| Work Process | GitHub Actions Equivalent |
+| ML Team Process | GitHub Actions Equivalent |
 |---|---|
-| You work on a task separately | Work on a feature branch |
-| You submit your work for review | Open a Pull Request |
-| Manager auto-checks your work | CI pipeline triggers automatically |
-| You get feedback before approval | See test results on the PR |
-| Work gets approved and filed | PR is merged into `main` |
+| Data scientist trains a new model | Work on a feature branch |
+| Submits model for team review | Open a Pull Request |
+| CI automatically trains + evaluates it | Workflow triggers on PR |
+| Team sees accuracy score in the PR | Test results shown on PR page |
+| Model gets approved and merged | PR merged into `main` |
 
 ---
 
@@ -235,7 +269,7 @@ Think of it like submitting work for review at a job:
 
 | Concept | What It Does | Example |
 |---|---|---|
-| **Feature branch** | Isolated workspace for new code | `pr-workflow` branch |
+| **Feature branch** | Isolated workspace for new ML code | `pr-workflow` branch |
 | **Pull Request (PR)** | Request to merge branch into main | `pr-workflow` → `main` |
 | `on: pull_request` | Triggers workflow when PR is opened | Replaces `on: push` |
 | `branches: [main]` | Target branch of the PR | Code merging INTO main |
@@ -243,8 +277,9 @@ Think of it like submitting work for review at a job:
 | `with:` | Passes arguments to an Action | `python-version: "3.10"` |
 | `actions/checkout@v3` | Downloads repo code onto runner | Must be first step! |
 | `actions/setup-python@v4` | Installs Python on the runner | Use `with` to pick version |
-| **Details link** | Opens the full job log on the PR page | Click to inspect step output |
+| `pip install -r requirements.txt` | Installs ML libraries like scikit-learn | Run before your ML script |
+| **Details link** | Opens the full job log on the PR page | See model accuracy in logs |
 
 ---
 
-> ✅ **Key Takeaway:** Triggering CI on Pull Requests = automatic safety net for your `main` branch. Every PR gets tested before merging, so broken code never reaches production. The pattern is always: **checkout → setup environment → run your code.**
+> ✅ **Key Takeaway:** Triggering CI on Pull Requests = automatic safety net for your ML codebase. Every PR trains and evaluates the model before merging, so broken or underperforming models never reach `main`. The pattern is always: **checkout → setup Python → install ML libraries → run your script.**
